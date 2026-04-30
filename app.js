@@ -1,6 +1,6 @@
 // =====================================================================
 // Tasks · Oliver & Josh
-// Firebase-synced shared task list with Claude-powered Quick Capture
+// Firebase-synced shared task list with built-in Quick Capture parser
 // =====================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -57,16 +57,9 @@ const oliverCount = $("#oliverCount");
 const joshCount = $("#joshCount");
 const quickInput = $("#quickInput");
 const quickStatus = $("#quickStatus");
-const addAIBtn = $("#addWithAI");
+const addBtn = $("#addBtn");
 const syncStatus = $("#syncStatus");
 const syncPill = $("#syncPill");
-const settingsBtn = $("#settingsBtn");
-const settingsModal = $("#settingsModal");
-const closeSettings = $("#closeSettings");
-const cancelSettings = $("#cancelSettings");
-const saveSettings = $("#saveSettings");
-const apiKeyInput = $("#apiKeyInput");
-const firebaseStatus = $("#firebaseStatus");
 const clearDoneBtn = $("#clearDoneBtn");
 const heroDate = $("#heroDate");
 
@@ -76,16 +69,13 @@ const heroDate = $("#heroDate");
 let tasks = [];
 const PEOPLE = ["oliver", "josh"];
 
-const getApiKey = () => localStorage.getItem("anthropic_api_key") || "";
-const setApiKey = (k) => localStorage.setItem("anthropic_api_key", k);
-
 // ---------------------------------------------------------------------
 // 5.  Hero date
 // ---------------------------------------------------------------------
 function renderDate() {
   const d = new Date();
-  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   heroDate.textContent = `${days[d.getDay()]} · ${months[d.getMonth()]} ${d.getDate()}`;
 }
 renderDate();
@@ -110,7 +100,7 @@ function render() {
     list.innerHTML = "";
     for (const t of items) {
       const li = document.createElement("li");
-      li.className = "task-item" + (t.done ? " done" : "") + (t._pending ? " pending" : "");
+      li.className = "task-item" + (t.done ? " done" : "");
       li.dataset.id = t.id;
 
       const cb = document.createElement("input");
@@ -177,7 +167,7 @@ function makeEditable(span, id) {
 // 7.  Firestore CRUD
 // ---------------------------------------------------------------------
 async function addTask(person, text) {
-  if (!firebaseReady) return alert("Firebase not configured. Open settings.");
+  if (!firebaseReady) return alert("Firebase not configured.");
   if (!PEOPLE.includes(person) || !text.trim()) return;
   await addDoc(tasksCol, {
     person,
@@ -246,68 +236,59 @@ function setSync(text, kind) {
 }
 
 // ---------------------------------------------------------------------
-// 9.  AI Quick Capture
+// 9.  Quick Capture parser (replaces the AI)
+//
+// Looks for "oliver"/"ollie" or "josh"/"joshua" anywhere in the input,
+// strips the name and connector words, capitalises the first letter,
+// and routes the rest to the right person.
+//
+// Splits multiple tasks on newlines, commas, semicolons,
+// or " and " when the next chunk also contains a name.
 // ---------------------------------------------------------------------
-const SYSTEM_PROMPT = `You turn rough notes into clean shared task list items for two people: Oliver and Josh.
+const NAME_PATTERNS = {
+  oliver: /\b(oliver|ollie)\b/i,
+  josh: /\b(josh|joshua)\b/i,
+};
 
-Rules:
-- Output STRICT JSON only, no prose, no markdown.
-- Schema: {"tasks":[{"person":"oliver"|"josh"|"unassigned","text":"..."}]}
-- Each note may contain ONE or MULTIPLE tasks — split them appropriately.
-- If a name is mentioned ("oliver", "josh", "ollie", "j"), assign accordingly.
-- If both names appear with different tasks, split into separate items.
-- If no name is given, use "person":"unassigned" — the client will prompt the user.
-- Rewrite each task as a clear, concise imperative sentence (start with a verb when natural). Keep dates/times if given.
-- Do NOT add information that wasn't there. Don't invent details.
-- Maximum ~12 words per task. Sentence case preferred.
+function parseQuickInput(input) {
+  const chunks = input
+    .split(/\s*[\n,;]\s*|\s+and\s+(?=\b(?:oliver|ollie|josh|joshua)\b)/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-Examples:
-Input: "oliver pick up dry cleaning thurs"
-Output: {"tasks":[{"person":"oliver","text":"Pick up dry cleaning Thursday"}]}
-
-Input: "josh book table sat night for 4, oliver call mum"
-Output: {"tasks":[{"person":"josh","text":"Book table for 4 on Saturday night"},{"person":"oliver","text":"Call mum"}]}
-
-Input: "buy milk"
-Output: {"tasks":[{"person":"unassigned","text":"Buy milk"}]}`;
-
-async function callClaude(noteText) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("no API key — open settings");
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 400,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: noteText }],
-    }),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`API ${res.status}: ${errBody.slice(0, 100)}`);
-  }
-  const data = await res.json();
-  const text = data.content?.[0]?.text || "";
-  const cleaned = text.replace(/```json\s*|\s*```/g, "").trim();
-  let parsed;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch (e) {
-    throw new Error("AI returned invalid JSON");
-  }
-  if (!Array.isArray(parsed.tasks)) throw new Error("AI returned wrong shape");
-  return parsed.tasks;
+  return chunks.map(parseChunk).filter((t) => t.text);
 }
 
+function parseChunk(chunk) {
+  let person = "unassigned";
+  let text = chunk;
+
+  if (NAME_PATTERNS.oliver.test(chunk)) {
+    person = "oliver";
+    text = chunk.replace(NAME_PATTERNS.oliver, " ");
+  } else if (NAME_PATTERNS.josh.test(chunk)) {
+    person = "josh";
+    text = chunk.replace(NAME_PATTERNS.josh, " ");
+  }
+
+  // Clean up: collapse spaces, strip leading/trailing punctuation,
+  // strip leading connector words like "to", "for", "should", "needs to"
+  text = text
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:\-–—]+/, "")
+    .replace(/[\s:\-–—]+$/, "")
+    .replace(/^(to|for|should|needs? to|has to|gotta|must)\s+/i, "")
+    .trim();
+
+  // Capitalise first letter
+  if (text) text = text.charAt(0).toUpperCase() + text.slice(1);
+
+  return { person, text };
+}
+
+// ---------------------------------------------------------------------
+// 10. Quick Add handler
+// ---------------------------------------------------------------------
 async function handleQuickAdd() {
   const note = quickInput.value.trim();
   if (!note) return;
@@ -316,21 +297,23 @@ async function handleQuickAdd() {
     return;
   }
 
-  addAIBtn.disabled = true;
-  setQuickStatus("thinking…", "thinking");
+  addBtn.disabled = true;
 
   try {
-    const aiTasks = await callClaude(note);
-    if (!aiTasks.length) {
+    const parsed = parseQuickInput(note);
+    if (!parsed.length) {
       setQuickStatus("no tasks found", "error");
       return;
     }
+
     let added = 0;
-    for (const t of aiTasks) {
-      let person = (t.person || "").toLowerCase();
-      const text = (t.text || "").trim();
+    for (const t of parsed) {
+      let person = t.person;
+      const text = t.text;
       if (!text) continue;
+
       if (!PEOPLE.includes(person)) {
+        // Couldn't detect a name — ask
         const choice = prompt(
           `Who is this for?\n\n"${text}"\n\nType: oliver, josh, or skip`,
           "oliver"
@@ -341,9 +324,11 @@ async function handleQuickAdd() {
         if (!PEOPLE.includes(lower)) continue;
         person = lower;
       }
+
       await addTask(person, text);
       added++;
     }
+
     if (added > 0) {
       quickInput.value = "";
       setQuickStatus(`added ${added} task${added === 1 ? "" : "s"}`, "success");
@@ -353,9 +338,9 @@ async function handleQuickAdd() {
     }
   } catch (err) {
     console.error(err);
-    setQuickStatus(err.message || "AI error", "error");
+    setQuickStatus("something went wrong", "error");
   } finally {
-    addAIBtn.disabled = false;
+    addBtn.disabled = false;
   }
 }
 
@@ -365,7 +350,7 @@ function setQuickStatus(text, cls) {
 }
 
 // ---------------------------------------------------------------------
-// 10. Manual add
+// 11. Manual add (per-person input)
 // ---------------------------------------------------------------------
 document.querySelectorAll(".manual-add").forEach((form) => {
   form.addEventListener("submit", async (e) => {
@@ -380,46 +365,14 @@ document.querySelectorAll(".manual-add").forEach((form) => {
 });
 
 // ---------------------------------------------------------------------
-// 11. Quick Add wiring
+// 12. Quick Add wiring
 // ---------------------------------------------------------------------
-addAIBtn.addEventListener("click", handleQuickAdd);
+addBtn.addEventListener("click", handleQuickAdd);
 quickInput.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
     e.preventDefault();
     handleQuickAdd();
   }
-});
-
-// ---------------------------------------------------------------------
-// 12. Settings modal
-// ---------------------------------------------------------------------
-function openSettings() {
-  apiKeyInput.value = getApiKey();
-  if (firebaseReady) {
-    firebaseStatus.textContent = `connected · project ${firebaseConfig.projectId}`;
-    firebaseStatus.style.color = "var(--josh)";
-  } else {
-    firebaseStatus.textContent = "not configured — edit firebaseConfig in app.js";
-    firebaseStatus.style.color = "var(--oliver)";
-  }
-  settingsModal.hidden = false;
-}
-function closeModal() { settingsModal.hidden = true; }
-
-settingsBtn.addEventListener("click", openSettings);
-closeSettings.addEventListener("click", closeModal);
-cancelSettings.addEventListener("click", closeModal);
-settingsModal.addEventListener("click", (e) => {
-  if (e.target === settingsModal) closeModal();
-});
-saveSettings.addEventListener("click", () => {
-  setApiKey(apiKeyInput.value.trim());
-  closeModal();
-  setQuickStatus("api key saved", "success");
-  setTimeout(() => setQuickStatus("", ""), 1800);
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !settingsModal.hidden) closeModal();
 });
 
 // ---------------------------------------------------------------------
@@ -432,7 +385,3 @@ clearDoneBtn.addEventListener("click", clearCompleted);
 // ---------------------------------------------------------------------
 subscribe();
 render();
-
-if (!getApiKey()) {
-  setQuickStatus("set your API key in settings", "");
-}

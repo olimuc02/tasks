@@ -116,7 +116,7 @@ const PEOPLE = ["oliver", "josh"];
 const getPref = (k, fallback) => localStorage.getItem(k) || fallback;
 const setPref = (k, v) => localStorage.setItem(k, v);
 
-let sortMode = getPref("sortMode", "urgency");
+let sortMode = getPref("sortMode", "tag");
 // migrate legacy "priority" pref → "urgency"
 if (sortMode === "priority") { sortMode = "urgency"; setPref("sortMode", "urgency"); }
 let filterTag = getPref("filterTag", "");
@@ -551,14 +551,13 @@ function buildTaskEl(t) {
 
   body.appendChild(main);
 
-  // notes panel — display + edit modes
-  const notesPanel = buildNotesPanel(t);
-  body.appendChild(notesPanel);
+  // small description below the task (replaces the old notes panel)
+  body.appendChild(buildDescEl(t));
 
   li.appendChild(body);
 
   // actions
-  const actions = buildActionsEl(t, { notesPanel });
+  const actions = buildActionsEl(t);
   li.appendChild(actions);
 
   return li;
@@ -623,100 +622,103 @@ function buildMetaEl(t) {
 }
 
 // ---------------------------------------------------------------------
-// notes panel: display mode (sits under task) + edit mode (textarea + save)
+// description: small inline subtitle under the task.
+// stored in the same `notes` firestore field for backward-compat.
+// click to edit, enter / blur to save, escape to cancel.
 // ---------------------------------------------------------------------
-function buildNotesPanel(t) {
-  const wrap = document.createElement("div");
-  wrap.className = "task-notes";
-  // hidden when there's no note and we're not actively editing
-  if (!t.notes) wrap.hidden = true;
+function buildDescEl(t) {
+  const el = document.createElement("div");
+  el.className = "task-desc";
+  el.setAttribute("autocapitalize", "none");
+  el.setAttribute("spellcheck", "true");
 
-  // ----- display mode -----
-  const display = document.createElement("div");
-  display.className = "task-notes-display";
-  display.textContent = (t.notes || "").toLowerCase();
-  display.title = "tap to edit note";
-  display.addEventListener("click", () => enterEditMode());
-  wrap.appendChild(display);
-
-  // ----- edit mode -----
-  const edit = document.createElement("div");
-  edit.className = "task-notes-edit";
-  edit.hidden = true;
-
-  const area = document.createElement("textarea");
-  area.className = "task-notes-input";
-  area.placeholder = "add a note…";
-  area.rows = 2;
-  area.setAttribute("autocapitalize", "none");
-  area.setAttribute("autocorrect", "on");
-  area.setAttribute("spellcheck", "true");
-  bindLowercaseInput(area);
-  area.addEventListener("input", () => autoResize(area));
-  edit.appendChild(area);
-
-  const editActions = document.createElement("div");
-  editActions.className = "task-notes-actions";
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.type = "button";
-  cancelBtn.className = "task-notes-btn task-notes-cancel";
-  cancelBtn.textContent = "cancel";
-  cancelBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    exitEditMode();
-  });
-
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.className = "task-notes-btn task-notes-save";
-  saveBtn.textContent = "save note";
-  saveBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const v = area.value.trim().toLowerCase();
-    const prev = t.notes || "";
-    // optimistically update local state + UI so the editor closes immediately
-    t.notes = v || null;
-    display.textContent = t.notes || "";
-    exitEditMode();
-    // only write to firestore if the value actually changed
-    if (v !== prev) {
-      await updateTask(t.id, { notes: v || null });
-    }
-  });
-
-  editActions.appendChild(cancelBtn);
-  editActions.appendChild(saveBtn);
-  edit.appendChild(editActions);
-  wrap.appendChild(edit);
-
-  // mode switching
-  function enterEditMode() {
-    wrap.hidden = false;
-    display.hidden = true;
-    edit.hidden = false;
-    area.value = (t.notes || "").toLowerCase();
-    autoResize(area);
-    requestAnimationFrame(() => area.focus());
+  const value = (t.notes || "").trim();
+  if (value) {
+    el.textContent = value;
+  } else {
+    el.classList.add("empty");
+    el.textContent = "+ description";
   }
-  function exitEditMode() {
-    edit.hidden = true;
-    if (t.notes) {
-      display.hidden = false;
-    } else {
-      // no note → hide whole panel again
-      wrap.hidden = true;
-    }
-  }
-
-  // expose for the actions row
-  wrap._enterEditMode = enterEditMode;
-  wrap._exitEditMode = exitEditMode;
-
-  return wrap;
+  el.addEventListener("click", (e) => {
+    e.stopPropagation();
+    makeDescEditable(el, t);
+  });
+  return el;
 }
 
-function buildActionsEl(t, { notesPanel }) {
+function makeDescEditable(el, t) {
+  if (el.getAttribute("contenteditable") === "true") return;
+
+  // clear placeholder if showing it
+  if (el.classList.contains("empty")) {
+    el.textContent = "";
+    el.classList.remove("empty");
+  }
+  el.classList.add("editing");
+  el.setAttribute("contenteditable", "true");
+  el.focus();
+
+  bindLowercaseContentEditable(el);
+
+  // place caret at end
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  const original = (t.notes || "").trim();
+  let cancelled = false;
+
+  const finish = async () => {
+    el.removeEventListener("blur", finish);
+    el.removeEventListener("keydown", onKey);
+    el.removeAttribute("contenteditable");
+    el.classList.remove("editing");
+
+    if (cancelled) {
+      // restore original value
+      if (original) {
+        el.textContent = original;
+        el.classList.remove("empty");
+      } else {
+        el.textContent = "+ description";
+        el.classList.add("empty");
+      }
+      return;
+    }
+
+    const newText = el.textContent.trim().toLowerCase();
+    if (newText === original) {
+      // unchanged — just restore proper display
+      if (!newText) { el.textContent = "+ description"; el.classList.add("empty"); }
+      return;
+    }
+
+    // optimistic local update + display
+    t.notes = newText || null;
+    if (!newText) { el.textContent = "+ description"; el.classList.add("empty"); }
+    else { el.textContent = newText; el.classList.remove("empty"); }
+    await updateTask(t.id, { notes: newText || null });
+  };
+
+  const onKey = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      el.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelled = true;
+      el.blur();
+    }
+  };
+
+  el.addEventListener("blur", finish);
+  el.addEventListener("keydown", onKey);
+}
+
+function buildActionsEl(t) {
   const actions = document.createElement("div");
   actions.className = "task-actions";
 
@@ -747,18 +749,6 @@ function buildActionsEl(t, { notesPanel }) {
   tagBtn.addEventListener("click", (e) => { e.stopPropagation(); openTagModal(t); });
   actions.appendChild(tagBtn);
 
-  // notes — toggles inline edit mode
-  const notesBtn = document.createElement("button");
-  notesBtn.className = "task-action-btn";
-  notesBtn.title = t.notes ? "edit note" : "add note";
-  notesBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
-  if (t.notes) notesBtn.classList.add("has-data");
-  notesBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    notesPanel._enterEditMode();
-  });
-  actions.appendChild(notesBtn);
-
   // delete — opens confirm modal
   const del = document.createElement("button");
   del.className = "task-action-btn task-delete";
@@ -768,11 +758,6 @@ function buildActionsEl(t, { notesPanel }) {
   actions.appendChild(del);
 
   return actions;
-}
-
-function autoResize(textarea) {
-  textarea.style.height = "auto";
-  textarea.style.height = textarea.scrollHeight + "px";
 }
 
 // ---------------------------------------------------------------------

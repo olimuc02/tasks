@@ -311,74 +311,70 @@ body.modal-open { overflow: hidden; }
 
 /* =====================================================================
    DUE TODAY — full-width section above the per-person columns
+   class names deliberately avoid `.due-today` because that class is also
+   used by the date pill (.task-due.due-today) and would otherwise inherit
+   section styles.
    ===================================================================== */
-.due-today {
+.today-section {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 16px 14px;
+  padding: 10px 14px 8px;
   box-shadow: var(--shadow-card);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   position: relative;
-  overflow: hidden;
 }
-.due-today[hidden] { display: none; }
-.due-today::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--oliver) 0%, var(--due-today-fg) 50%, var(--josh) 100%);
-  opacity: 0.85;
-}
+.today-section[hidden] { display: none; }
 
-.due-today-head {
+.today-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px; margin-bottom: 4px;
-  border-bottom: 1px solid var(--line);
+  gap: 10px;
+  padding-bottom: 8px; margin-bottom: 2px;
+  border-bottom: 1px dashed var(--line);
 }
-.due-today-title-wrap { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.due-today-icon {
+.today-title-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.today-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px;
+  width: 26px; height: 26px;
   background: linear-gradient(135deg, var(--due-today-bg) 0%, #f4c8a8 100%);
   border-radius: 50%;
   color: var(--due-today-fg);
   flex-shrink: 0;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.25) inset,
-    0 1px 2px rgba(0, 0, 0, 0.1),
-    0 4px 10px -2px rgba(0, 0, 0, 0.1);
+    0 1px 2px rgba(0, 0, 0, 0.08);
 }
-.due-today-title {
+.today-title {
   margin: 0;
   font-family: var(--display); font-style: italic; font-weight: 400;
   font-variation-settings: "opsz" 144, "SOFT" 50;
-  font-size: 26px; letter-spacing: -0.025em;
+  font-size: 19px; letter-spacing: -0.02em;
   color: var(--due-today-fg);
   line-height: 1;
 }
-.due-today-count {
-  font-family: var(--mono); font-size: 10.5px;
+.today-count {
+  font-family: var(--mono); font-size: 10px;
   color: var(--ink-3); letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
-/* in the due-today list, give each task a thin colored stripe matching the
-   assignee so you can tell whose it is at a glance */
-.due-today .task-item {
+/* tighter task rows in the today section, with a colored left stripe
+   indicating whose task it is */
+.today-section .task-item {
   position: relative;
-  padding-left: 12px;
+  padding: 9px 4px 9px 12px;
 }
-.due-today .task-of-oliver::after,
-.due-today .task-of-josh::after {
+.today-section .task-of-oliver::after,
+.today-section .task-of-josh::after {
   content: "";
   position: absolute;
-  left: 0; top: 14px; bottom: 14px;
+  left: 0; top: 11px; bottom: 11px;
   width: 2.5px; border-radius: 2px;
 }
-.due-today .task-of-oliver::after { background: var(--oliver); }
-.due-today .task-of-josh::after   { background: var(--josh); }
+.today-section .task-of-oliver::after { background: var(--oliver); }
+.today-section .task-of-josh::after   { background: var(--josh); }
 
-/* person pill (only shown in the mixed due-today list) */
+/* person pill (only shown in the mixed today list) */
 .task-person {
   display: inline-flex; align-items: center;
   font-family: var(--body); font-size: 10px; font-weight: 600;
@@ -398,9 +394,9 @@ body.modal-open { overflow: hidden; }
 .task-item.done .task-person { opacity: 0.55; }
 
 @media (max-width: 480px) {
-  .due-today { padding: 16px 14px 12px; }
-  .due-today-title { font-size: 23px; }
-  .due-today-icon { width: 36px; height: 36px; }
+  .today-section { padding: 9px 12px 7px; }
+  .today-title { font-size: 17px; }
+  .today-icon { width: 24px; height: 24px; }
 }
 
 /* columns */

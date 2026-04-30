@@ -107,6 +107,11 @@ const deleteModal = $("#deleteModal");
 const deleteModalText = $("#deleteModalText");
 const deleteModalConfirm = $("#deleteModalConfirm");
 
+// due-today section
+const todaySection = $("#todaySection");
+const todayList = $("#todayList");
+const todayCount = $("#todayCount");
+
 // ---------------------------------------------------------------------
 // 5.  state
 // ---------------------------------------------------------------------
@@ -226,6 +231,10 @@ function formatDueLabel(ts) {
 function shortDate(d) {
   const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+function isDueToday(ts) {
+  if (!ts) return false;
+  return startOfDay(new Date(ts)).getTime() === startOfDay(new Date()).getTime();
 }
 
 // ---------------------------------------------------------------------
@@ -457,6 +466,31 @@ function getSortFn(mode) {
 // ---------------------------------------------------------------------
 function render() {
   const sortFn = getSortFn(sortMode);
+
+  // ---------- due today (mixed people, full width) ----------
+  let todayItems = tasks.filter((t) => isDueToday(t.dueDate));
+  if (filterTag) todayItems = todayItems.filter((t) => (t.tags || []).includes(filterTag));
+  // sort: open first, then highest urgency, then oldest first
+  todayItems.sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    const au = a.urgency || 0;
+    const bu = b.urgency || 0;
+    if (au !== bu) return bu - au;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+  if (todayItems.length === 0) {
+    todaySection.hidden = true;
+  } else {
+    todaySection.hidden = false;
+    const openToday = todayItems.filter((t) => !t.done).length;
+    todayCount.textContent = openToday > 0
+      ? `${openToday} open · ${todayItems.length} total`
+      : "all clear";
+    todayList.innerHTML = "";
+    todayItems.forEach((t) => todayList.appendChild(buildTaskEl(t, { showPerson: true })));
+  }
+
+  // ---------- per-person columns ----------
   for (const person of PEOPLE) {
     const list = person === "oliver" ? oliverList : joshList;
     const countEl = person === "oliver" ? oliverCount : joshCount;
@@ -470,8 +504,6 @@ function render() {
 
     list.innerHTML = "";
     if (sortMode === "tag") {
-      // group by section: each tag id, "__notag__", and "__done__" (one bucket
-      // for all completed tasks at the bottom regardless of tag)
       let currentSection = "__init__";
       items.forEach((t) => {
         const section = t.done
@@ -512,13 +544,14 @@ function buildTagGroupHeader(section) {
   return li;
 }
 
-function buildTaskEl(t) {
+function buildTaskEl(t, { showPerson = false } = {}) {
   const li = document.createElement("li");
   const lvl = t.urgency || 0;
   li.className =
     "task-item" +
     (t.done ? " done" : "") +
-    (lvl ? ` lvl-${lvl}` : "");
+    (lvl ? ` lvl-${lvl}` : "") +
+    (showPerson ? ` task-of-${t.person}` : "");
   li.dataset.id = t.id;
 
   // checkbox
@@ -546,7 +579,7 @@ function buildTaskEl(t) {
   span.addEventListener("click", () => makeEditable(span, t.id));
   main.appendChild(span);
 
-  const meta = buildMetaEl(t);
+  const meta = buildMetaEl(t, { showPerson });
   if (meta) main.appendChild(meta);
 
   body.appendChild(main);
@@ -563,12 +596,21 @@ function buildTaskEl(t) {
   return li;
 }
 
-function buildMetaEl(t) {
+function buildMetaEl(t, { showPerson = false } = {}) {
   const tags = t.tags || [];
-  if (!tags.length && !t.dueDate && !t.urgency) return null;
+  const hasContent = tags.length || t.dueDate || t.urgency || (showPerson && t.person);
+  if (!hasContent) return null;
 
   const meta = document.createElement("div");
   meta.className = "task-meta";
+
+  // person pill — only on the mixed "due today" list
+  if (showPerson && t.person) {
+    const personPill = document.createElement("span");
+    personPill.className = `task-person task-person-${t.person}`;
+    personPill.textContent = t.person;
+    meta.appendChild(personPill);
+  }
 
   // tags
   for (const tagId of tags) {

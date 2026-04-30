@@ -21,15 +21,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ---------------------------------------------------------------------
-// 1.  CONFIG  — paste your Firebase web config here
+// 1.  Firebase config
 // ---------------------------------------------------------------------
 const firebaseConfig = {
-  apiKey: "PASTE_YOUR_FIREBASE_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "0000000000",
-  appId: "1:0000000000:web:abcdef",
+  apiKey: "AIzaSyDu-bAYH7t7rf-y3Fs0K1GjyvjFrSTDSSc",
+  authDomain: "tasks-oj.firebaseapp.com",
+  projectId: "tasks-oj",
+  storageBucket: "tasks-oj.firebasestorage.app",
+  messagingSenderId: "165391193367",
+  appId: "1:165391193367:web:5c839c148f4b4d00a95352",
 };
 
 // ---------------------------------------------------------------------

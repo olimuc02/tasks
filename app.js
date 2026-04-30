@@ -2,7 +2,7 @@
 // tasks · oliver & josh
 // firebase-synced shared task list
 // features: name routing · natural-language dates · urgency levels (1/2/3)
-//           · tags · notes · sort · auto-lowercase
+//           · tags · notes · sort · auto-lowercase · iphone-friendly modals
 // =====================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -84,6 +84,8 @@ const clearDoneBtn = $("#clearDoneBtn");
 const heroDate = $("#heroDate");
 const sortModeSel = $("#sortMode");
 const filterTagSel = $("#filterTag");
+
+// date modal
 const dateModal = $("#dateModal");
 const dateModalInput = $("#dateModalInput");
 const dateModalClose = $("#dateModalClose");
@@ -91,6 +93,19 @@ const dateModalBackdrop = $("#dateModalBackdrop");
 const dateModalDone = $("#dateModalDone");
 const dateModalClear = $("#dateModalClear");
 const dateQuickRow = $("#dateQuickRow");
+
+// urgency modal
+const urgencyModal = $("#urgencyModal");
+const urgencyModalOptions = $("#urgencyModalOptions");
+
+// tag modal
+const tagModal = $("#tagModal");
+const tagModalGrid = $("#tagModalGrid");
+
+// delete modal
+const deleteModal = $("#deleteModal");
+const deleteModalText = $("#deleteModalText");
+const deleteModalConfirm = $("#deleteModalConfirm");
 
 // ---------------------------------------------------------------------
 // 5.  state
@@ -101,7 +116,9 @@ const PEOPLE = ["oliver", "josh"];
 const getPref = (k, fallback) => localStorage.getItem(k) || fallback;
 const setPref = (k, v) => localStorage.setItem(k, v);
 
-let sortMode = getPref("sortMode", "priority");
+let sortMode = getPref("sortMode", "urgency");
+// migrate legacy "priority" pref → "urgency"
+if (sortMode === "priority") { sortMode = "urgency"; setPref("sortMode", "urgency"); }
 let filterTag = getPref("filterTag", "");
 sortModeSel.value = sortMode;
 
@@ -301,17 +318,11 @@ function extractUrgency(text) {
   let level = 0;
   let cleaned = text;
 
-  // !!! anywhere → level 3
   cleaned = cleaned.replace(/!{3,}/g, () => { level = Math.max(level, 3); return " "; });
-  // !! anywhere → level 2
   cleaned = cleaned.replace(/!{2}/g, () => { level = Math.max(level, 2); return " "; });
-  // asap, critical → level 3
   cleaned = cleaned.replace(/\b(asap|critical)\b/gi, () => { level = Math.max(level, 3); return " "; });
-  // urgent → level 2
   cleaned = cleaned.replace(/\burgent\b/gi, () => { level = Math.max(level, 2); return " "; });
-  // important, priority → level 1
   cleaned = cleaned.replace(/\b(important|priority)\b/gi, () => { level = Math.max(level, 1); return " "; });
-  // trailing single ! → level 1, also strip
   cleaned = cleaned.replace(/!\s*$/, () => { level = Math.max(level, 1); return ""; });
 
   return { urgency: level || null, cleaned };
@@ -322,10 +333,14 @@ function parseQuickInput(input) {
     .split(/\s*[\n,;]\s*|\s+and\s+(?=\b(?:oliver|ollie|josh|joshua)\b)/i)
     .map((s) => s.trim())
     .filter(Boolean);
-  return chunks.map(parseChunk).filter((t) => t.text);
+  return chunks.map((c) => parseChunk(c, { detectPerson: true })).filter((t) => t.text);
 }
 
-function parseChunk(chunk) {
+// detectPerson:
+//   true  → strip the person's name from the task text and route to that column (used by the global quick add)
+//   false → leave names in the text literally (used by the per-column manual add and inline edit,
+//           because the column already determines the assignee — and "josh" might be in the task text)
+function parseChunk(chunk, { detectPerson = true } = {}) {
   let text = chunk;
 
   // 1. tags first (so #joshpersonal doesn't trigger name detection on "josh")
@@ -333,14 +348,16 @@ function parseChunk(chunk) {
   text = tagResult.cleaned;
   const tags = tagResult.tags;
 
-  // 2. person
+  // 2. person — only when caller wants name-based routing
   let person = "unassigned";
-  if (NAME_PATTERNS.oliver.test(text)) {
-    person = "oliver";
-    text = text.replace(NAME_PATTERNS.oliver, " ");
-  } else if (NAME_PATTERNS.josh.test(text)) {
-    person = "josh";
-    text = text.replace(NAME_PATTERNS.josh, " ");
+  if (detectPerson) {
+    if (NAME_PATTERNS.oliver.test(text)) {
+      person = "oliver";
+      text = text.replace(NAME_PATTERNS.oliver, " ");
+    } else if (NAME_PATTERNS.josh.test(text)) {
+      person = "josh";
+      text = text.replace(NAME_PATTERNS.josh, " ");
+    }
   }
 
   // 3. date
@@ -360,7 +377,7 @@ function parseChunk(chunk) {
     .replace(/\s+/g, " ")
     .replace(/^[\s:\-–—]+/, "")
     .replace(/[\s:\-–—]+$/, "")
-    .replace(/^(to|for|should|needs? to|has to|gotta|must)\s+/i, "")
+    .replace(/^(to|should|needs? to|has to|gotta|must)\s+/i, "")
     .toLowerCase()
     .trim();
 
@@ -371,7 +388,6 @@ function parseChunk(chunk) {
 // 10. data normalization (migrates old urgent: bool → urgency: number)
 // ---------------------------------------------------------------------
 function normalizeTask(t) {
-  // legacy field migration
   if (typeof t.urgent === "boolean") {
     if (t.urgent && !t.urgency) t.urgency = 2;
     delete t.urgent;
@@ -405,7 +421,21 @@ function getSortFn(mode) {
         if (a.done !== b.done) return a.done ? 1 : -1;
         return (a.createdAt || 0) - (b.createdAt || 0);
       };
-    case "priority":
+    case "tag":
+      return (a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        // tagged tasks first, alphabetical by primary tag; untagged last
+        const at = (a.tags && a.tags[0]) || null;
+        const bt = (b.tags && b.tags[0]) || null;
+        if (at !== bt) {
+          if (at === null) return 1;
+          if (bt === null) return -1;
+          return at.localeCompare(bt);
+        }
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      };
+    case "urgency":
+    case "priority": // legacy
     default:
       return (a, b) => {
         if (a.done !== b.done) return a.done ? 1 : -1;
@@ -482,38 +512,14 @@ function buildTaskEl(t) {
 
   body.appendChild(main);
 
-  // notes panel
-  const notesPanel = document.createElement("div");
-  notesPanel.className = "task-notes";
-  if (!t.notes) notesPanel.hidden = true;
-  const notesArea = document.createElement("textarea");
-  notesArea.className = "task-notes-input";
-  notesArea.placeholder = "add a note…";
-  notesArea.value = (t.notes || "").toLowerCase();
-  notesArea.rows = 2;
-  notesArea.setAttribute("autocapitalize", "none");
-  notesArea.setAttribute("autocorrect", "on");
-  notesArea.setAttribute("spellcheck", "true");
-  bindLowercaseInput(notesArea);
-  notesArea.addEventListener("input", () => autoResize(notesArea));
-  notesArea.addEventListener("blur", async () => {
-    const v = notesArea.value.trim().toLowerCase();
-    if (v !== (t.notes || "")) {
-      await updateTask(t.id, { notes: v || null });
-    }
-  });
-  notesPanel.appendChild(notesArea);
+  // notes panel — display + edit modes
+  const notesPanel = buildNotesPanel(t);
   body.appendChild(notesPanel);
-  if (t.notes) requestAnimationFrame(() => autoResize(notesArea));
-
-  // tag picker
-  const tagPicker = buildTagPickerEl(t);
-  body.appendChild(tagPicker);
 
   li.appendChild(body);
 
   // actions
-  const actions = buildActionsEl(t, { notesPanel, notesArea, tagPicker });
+  const actions = buildActionsEl(t, { notesPanel });
   li.appendChild(actions);
 
   return li;
@@ -533,23 +539,22 @@ function buildMetaEl(t) {
     const pill = document.createElement("button");
     pill.type = "button";
     pill.className = `task-tag tag-${def.color}`;
-    pill.title = "click to remove";
-    pill.innerHTML = `<span>${def.label}</span><span class="tag-x" aria-hidden="true">×</span>`;
-    pill.addEventListener("click", async (e) => {
+    pill.title = "tap to edit tags";
+    pill.innerHTML = `<span>${def.label}</span>`;
+    pill.addEventListener("click", (e) => {
       e.stopPropagation();
-      const newTags = (t.tags || []).filter((x) => x !== tagId);
-      await updateTask(t.id, { tags: newTags });
+      openTagModal(t);
     });
     meta.appendChild(pill);
   }
 
-  // date pill
+  // date pill — opens date modal
   if (t.dueDate) {
     const due = formatDueLabel(t.dueDate);
     const pill = document.createElement("button");
     pill.type = "button";
     pill.className = `task-due due-${due.cls}`;
-    pill.title = "click to change date";
+    pill.title = "tap to change date";
     pill.innerHTML =
       `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>` +
       `<span>${due.label}</span>`;
@@ -560,18 +565,17 @@ function buildMetaEl(t) {
     meta.appendChild(pill);
   }
 
-  // urgency pill (cycles 1 → 2 → 3 → off)
+  // urgency pill — opens urgency modal (no more cycling)
   if (t.urgency) {
     const lvl = t.urgency;
     const u = document.createElement("button");
     u.type = "button";
     u.className = `task-urgency lvl-${lvl}`;
-    u.title = lvl === 3 ? "click to clear" : "click to escalate";
+    u.title = "tap to change urgency";
     u.innerHTML = `<span>${"!".repeat(lvl)}</span>`;
-    u.addEventListener("click", async (e) => {
+    u.addEventListener("click", (e) => {
       e.stopPropagation();
-      const next = lvl === 3 ? null : lvl + 1;
-      await updateTask(t.id, { urgency: next });
+      openUrgencyModal(t);
     });
     meta.appendChild(u);
   }
@@ -579,99 +583,144 @@ function buildMetaEl(t) {
   return meta;
 }
 
-function buildTagPickerEl(t) {
+// ---------------------------------------------------------------------
+// notes panel: display mode (sits under task) + edit mode (textarea + save)
+// ---------------------------------------------------------------------
+function buildNotesPanel(t) {
   const wrap = document.createElement("div");
-  wrap.className = "tag-picker";
-  wrap.hidden = true;
+  wrap.className = "task-notes";
+  // hidden when there's no note and we're not actively editing
+  if (!t.notes) wrap.hidden = true;
 
-  const inner = document.createElement("div");
-  inner.className = "tag-picker-inner";
+  // ----- display mode -----
+  const display = document.createElement("div");
+  display.className = "task-notes-display";
+  display.textContent = (t.notes || "").toLowerCase();
+  display.title = "tap to edit note";
+  display.addEventListener("click", () => enterEditMode());
+  wrap.appendChild(display);
 
-  for (const id of Object.keys(TAGS)) {
-    const def = TAGS[id];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `tag-option tag-${def.color}`;
-    btn.dataset.tagId = id;
-    const isOn = (t.tags || []).includes(id);
-    if (isOn) btn.classList.add("on");
-    btn.innerHTML = `<span>${def.label}</span>`;
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const cur = t.tags || [];
-      const newTags = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-      await updateTask(t.id, { tags: newTags });
-    });
-    inner.appendChild(btn);
+  // ----- edit mode -----
+  const edit = document.createElement("div");
+  edit.className = "task-notes-edit";
+  edit.hidden = true;
+
+  const area = document.createElement("textarea");
+  area.className = "task-notes-input";
+  area.placeholder = "add a note…";
+  area.rows = 2;
+  area.setAttribute("autocapitalize", "none");
+  area.setAttribute("autocorrect", "on");
+  area.setAttribute("spellcheck", "true");
+  bindLowercaseInput(area);
+  area.addEventListener("input", () => autoResize(area));
+  edit.appendChild(area);
+
+  const editActions = document.createElement("div");
+  editActions.className = "task-notes-actions";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "task-notes-btn task-notes-cancel";
+  cancelBtn.textContent = "cancel";
+  cancelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    exitEditMode();
+  });
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "task-notes-btn task-notes-save";
+  saveBtn.textContent = "save note";
+  saveBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const v = area.value.trim().toLowerCase();
+    if (v !== (t.notes || "")) {
+      await updateTask(t.id, { notes: v || null });
+    }
+    // render() will rebuild this panel from fresh task state
+  });
+
+  editActions.appendChild(cancelBtn);
+  editActions.appendChild(saveBtn);
+  edit.appendChild(editActions);
+  wrap.appendChild(edit);
+
+  // mode switching
+  function enterEditMode() {
+    wrap.hidden = false;
+    display.hidden = true;
+    edit.hidden = false;
+    area.value = (t.notes || "").toLowerCase();
+    autoResize(area);
+    requestAnimationFrame(() => area.focus());
+  }
+  function exitEditMode() {
+    edit.hidden = true;
+    if (t.notes) {
+      display.hidden = false;
+    } else {
+      // no note → hide whole panel again
+      wrap.hidden = true;
+    }
   }
 
-  wrap.appendChild(inner);
+  // expose for the actions row
+  wrap._enterEditMode = enterEditMode;
+  wrap._exitEditMode = exitEditMode;
+
   return wrap;
 }
 
-function buildActionsEl(t, { notesPanel, notesArea, tagPicker }) {
+function buildActionsEl(t, { notesPanel }) {
   const actions = document.createElement("div");
   actions.className = "task-actions";
 
-  // +date (only if not set)
-  if (!t.dueDate) {
-    const b = document.createElement("button");
-    b.className = "task-action-btn";
-    b.title = "set date";
-    b.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`;
-    b.addEventListener("click", () => openDateModal(t));
-    actions.appendChild(b);
-  }
+  // date — opens modal (set or change)
+  const dateBtn = document.createElement("button");
+  dateBtn.className = "task-action-btn";
+  dateBtn.title = t.dueDate ? "change date" : "set date";
+  dateBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`;
+  if (t.dueDate) dateBtn.classList.add("has-data");
+  dateBtn.addEventListener("click", (e) => { e.stopPropagation(); openDateModal(t); });
+  actions.appendChild(dateBtn);
 
-  // +urgency (only if no level set) — sets to level 1
-  if (!t.urgency) {
-    const b = document.createElement("button");
-    b.className = "task-action-btn";
-    b.title = "mark urgent";
-    b.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><circle cx="12" cy="19" r="1"/></svg>`;
-    b.addEventListener("click", () => updateTask(t.id, { urgency: 1 }));
-    actions.appendChild(b);
-  }
+  // urgency — opens modal
+  const urgBtn = document.createElement("button");
+  urgBtn.className = "task-action-btn";
+  urgBtn.title = t.urgency ? "change urgency" : "set urgency";
+  urgBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><circle cx="12" cy="19" r="1"/></svg>`;
+  if (t.urgency) urgBtn.classList.add("has-data");
+  urgBtn.addEventListener("click", (e) => { e.stopPropagation(); openUrgencyModal(t); });
+  actions.appendChild(urgBtn);
 
-  // tag picker toggle
+  // tags — opens modal
   const tagBtn = document.createElement("button");
   tagBtn.className = "task-action-btn";
   tagBtn.title = "tags";
   tagBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1"/></svg>`;
   if ((t.tags || []).length) tagBtn.classList.add("has-data");
-  tagBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    tagPicker.hidden = !tagPicker.hidden;
-    if (!tagPicker.hidden) tagBtn.classList.add("active");
-    else tagBtn.classList.remove("active");
-  });
+  tagBtn.addEventListener("click", (e) => { e.stopPropagation(); openTagModal(t); });
   actions.appendChild(tagBtn);
 
-  // notes toggle
+  // notes — toggles inline edit mode
   const notesBtn = document.createElement("button");
   notesBtn.className = "task-action-btn";
-  notesBtn.title = "notes";
+  notesBtn.title = t.notes ? "edit note" : "add note";
   notesBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>`;
   if (t.notes) notesBtn.classList.add("has-data");
   notesBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    notesPanel.hidden = !notesPanel.hidden;
-    if (!notesPanel.hidden) {
-      notesBtn.classList.add("active");
-      notesArea.focus();
-      requestAnimationFrame(() => autoResize(notesArea));
-    } else {
-      notesBtn.classList.remove("active");
-    }
+    notesPanel._enterEditMode();
   });
   actions.appendChild(notesBtn);
 
-  // delete
+  // delete — opens confirm modal
   const del = document.createElement("button");
   del.className = "task-action-btn task-delete";
   del.title = "delete";
   del.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
-  del.addEventListener("click", () => removeTask(t.id));
+  del.addEventListener("click", (e) => { e.stopPropagation(); openDeleteModal(t); });
   actions.appendChild(del);
 
   return actions;
@@ -706,7 +755,9 @@ function makeEditable(span, id) {
     if (!original) return;
     if (!newText) { span.textContent = (original.text || "").toLowerCase(); return; }
 
-    const parsed = parseChunk(newText);
+    // Don't strip names on inline edits — task is already assigned to a column,
+    // and "josh" / "oliver" might be part of the actual task text.
+    const parsed = parseChunk(newText, { detectPerson: false });
     const updates = {};
     if (parsed.text && parsed.text !== original.text) updates.text = parsed.text;
     if (parsed.dueDate && parsed.dueDate !== original.dueDate) updates.dueDate = parsed.dueDate;
@@ -732,25 +783,37 @@ function makeEditable(span, id) {
 }
 
 // ---------------------------------------------------------------------
-// 14. date modal
+// 14. shared modal helpers
+// ---------------------------------------------------------------------
+function openModal(modalEl) {
+  modalEl.hidden = false;
+  modalEl.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  requestAnimationFrame(() => modalEl.classList.add("open"));
+}
+function closeModal(modalEl) {
+  modalEl.classList.remove("open");
+  modalEl.setAttribute("aria-hidden", "true");
+  // wait for transition before hiding
+  setTimeout(() => { modalEl.hidden = true; }, 220);
+  // only release scroll lock if no other modal is open
+  setTimeout(() => {
+    const anyOpen = document.querySelector(".date-modal.open, .action-modal.open");
+    if (!anyOpen) document.body.classList.remove("modal-open");
+  }, 230);
+}
+
+// ---------------------------------------------------------------------
+// 15. date modal
 // ---------------------------------------------------------------------
 let dateModalTaskId = null;
 
 function openDateModal(task) {
   dateModalTaskId = task.id;
   dateModalInput.value = task.dueDate ? toDateInputValue(task.dueDate) : "";
-  dateModal.hidden = false;
-  dateModal.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
-  requestAnimationFrame(() => dateModal.classList.add("open"));
+  openModal(dateModal);
 }
-function closeDateModal() {
-  dateModal.classList.remove("open");
-  dateModal.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
-  setTimeout(() => { dateModal.hidden = true; }, 220);
-  dateModalTaskId = null;
-}
+function closeDateModal() { closeModal(dateModal); dateModalTaskId = null; }
 async function commitModalDate(ts) {
   if (!dateModalTaskId) return;
   await updateTask(dateModalTaskId, { dueDate: ts });
@@ -764,12 +827,10 @@ dateModalDone.addEventListener("click", () => {
   const ts = parseDateInputValue(dateModalInput.value);
   commitModalDate(ts);
 });
-// auto-save when user picks a date in the native picker
 dateModalInput.addEventListener("change", () => {
   const ts = parseDateInputValue(dateModalInput.value);
   if (ts !== null) commitModalDate(ts);
 });
-// quick presets
 dateQuickRow.addEventListener("click", (e) => {
   const btn = e.target.closest(".date-quick");
   if (!btn) return;
@@ -781,13 +842,114 @@ dateQuickRow.addEventListener("click", (e) => {
   }
   if (ts !== null) commitModalDate(ts);
 });
-// escape to close
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !dateModal.hidden) closeDateModal();
+
+// ---------------------------------------------------------------------
+// 16. urgency modal
+// ---------------------------------------------------------------------
+let urgencyModalTaskId = null;
+
+function openUrgencyModal(task) {
+  urgencyModalTaskId = task.id;
+  // build options fresh so the current level shows as selected
+  urgencyModalOptions.innerHTML = "";
+  const opts = [
+    { lvl: 0, label: "none",   sub: "no urgency", cls: "urg-none", marks: "·"   },
+    { lvl: 1, label: "low",    sub: "important",  cls: "urg-1",    marks: "!"   },
+    { lvl: 2, label: "medium", sub: "urgent",     cls: "urg-2",    marks: "!!"  },
+    { lvl: 3, label: "high",   sub: "asap",       cls: "urg-3",    marks: "!!!" },
+  ];
+  const cur = task.urgency || 0;
+  for (const o of opts) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "urgency-option" + (o.lvl === cur ? " selected" : "");
+    btn.dataset.level = o.lvl;
+    btn.innerHTML =
+      `<span class="urgency-pill ${o.cls}">${o.marks}</span>` +
+      `<span class="urgency-text"><span class="urgency-label">${o.label}</span><span class="urgency-sub">${o.sub}</span></span>`;
+    btn.addEventListener("click", async () => {
+      const lvl = parseInt(btn.dataset.level, 10);
+      await updateTask(urgencyModalTaskId, { urgency: lvl > 0 ? lvl : null });
+      closeUrgencyModal();
+    });
+    urgencyModalOptions.appendChild(btn);
+  }
+  openModal(urgencyModal);
+}
+function closeUrgencyModal() { closeModal(urgencyModal); urgencyModalTaskId = null; }
+urgencyModal.querySelectorAll("[data-modal-close]").forEach((el) =>
+  el.addEventListener("click", closeUrgencyModal)
+);
+
+// ---------------------------------------------------------------------
+// 17. tag modal
+// ---------------------------------------------------------------------
+let tagModalTaskId = null;
+
+function openTagModal(task) {
+  tagModalTaskId = task.id;
+  tagModalGrid.innerHTML = "";
+  const cur = task.tags || [];
+  for (const id of Object.keys(TAGS)) {
+    const def = TAGS[id];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `tag-option tag-${def.color}` + (cur.includes(id) ? " on" : "");
+    btn.dataset.tagId = id;
+    btn.innerHTML = `<span>${def.label}</span>`;
+    btn.addEventListener("click", async () => {
+      // Use latest task state from the live tasks array (avoid stale closure)
+      const live = tasks.find((x) => x.id === tagModalTaskId);
+      const liveTags = (live && live.tags) || [];
+      const newTags = liveTags.includes(id)
+        ? liveTags.filter((x) => x !== id)
+        : [...liveTags, id];
+      btn.classList.toggle("on");
+      await updateTask(tagModalTaskId, { tags: newTags });
+    });
+    tagModalGrid.appendChild(btn);
+  }
+  openModal(tagModal);
+}
+function closeTagModal() { closeModal(tagModal); tagModalTaskId = null; }
+tagModal.querySelectorAll("[data-modal-close]").forEach((el) =>
+  el.addEventListener("click", closeTagModal)
+);
+
+// ---------------------------------------------------------------------
+// 18. delete modal
+// ---------------------------------------------------------------------
+let deleteModalTaskId = null;
+
+function openDeleteModal(task) {
+  deleteModalTaskId = task.id;
+  deleteModalText.textContent = (task.text || "").toLowerCase();
+  openModal(deleteModal);
+}
+function closeDeleteModal() { closeModal(deleteModal); deleteModalTaskId = null; }
+deleteModal.querySelectorAll("[data-modal-close]").forEach((el) =>
+  el.addEventListener("click", closeDeleteModal)
+);
+deleteModalConfirm.addEventListener("click", async () => {
+  if (!deleteModalTaskId) return;
+  const id = deleteModalTaskId;
+  closeDeleteModal();
+  await removeTask(id);
 });
 
 // ---------------------------------------------------------------------
-// 15. firestore crud
+// 19. global escape — close any open modal
+// ---------------------------------------------------------------------
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!dateModal.hidden)    closeDateModal();
+  if (!urgencyModal.hidden) closeUrgencyModal();
+  if (!tagModal.hidden)     closeTagModal();
+  if (!deleteModal.hidden)  closeDeleteModal();
+});
+
+// ---------------------------------------------------------------------
+// 20. firestore crud
 // ---------------------------------------------------------------------
 async function addTask(person, text, extras = {}) {
   if (!firebaseReady) return alert("firebase not configured.");
@@ -806,7 +968,6 @@ async function addTask(person, text, extras = {}) {
 }
 async function updateTask(id, patch) {
   if (!firebaseReady) return;
-  // ensure text/notes are saved lowercase
   if (patch.text !== undefined && typeof patch.text === "string") patch.text = patch.text.toLowerCase();
   if (patch.notes !== undefined && typeof patch.notes === "string") patch.notes = patch.notes.toLowerCase();
   await updateDoc(doc(tasksCol, id), patch);
@@ -829,7 +990,7 @@ async function clearCompleted() {
 }
 
 // ---------------------------------------------------------------------
-// 16. realtime sync
+// 21. realtime sync
 // ---------------------------------------------------------------------
 function subscribe() {
   if (!firebaseReady) {
@@ -853,7 +1014,7 @@ function setSync(text, kind) {
 }
 
 // ---------------------------------------------------------------------
-// 17. quick add
+// 22. quick add (global capture box — names ARE the routing)
 // ---------------------------------------------------------------------
 async function handleQuickAdd() {
   const note = quickInput.value.trim();
@@ -903,7 +1064,9 @@ function setQuickStatus(text, cls) {
 }
 
 // ---------------------------------------------------------------------
-// 18. manual add
+// 23. manual add (per-column — column already determines the assignee,
+//      so DO NOT strip names from the text. "tell josh i love him" stays
+//      verbatim when added under oliver.)
 // ---------------------------------------------------------------------
 document.querySelectorAll(".manual-add").forEach((form) => {
   form.addEventListener("submit", async (e) => {
@@ -913,14 +1076,14 @@ document.querySelectorAll(".manual-add").forEach((form) => {
     const raw = input.value.trim();
     if (!raw) return;
     input.value = "";
-    const parsed = parseChunk(raw);
+    const parsed = parseChunk(raw, { detectPerson: false });
     const text = parsed.text || raw;
     await addTask(person, text, { dueDate: parsed.dueDate, urgency: parsed.urgency, tags: parsed.tags });
   });
 });
 
 // ---------------------------------------------------------------------
-// 19. wiring
+// 24. wiring
 // ---------------------------------------------------------------------
 addBtn.addEventListener("click", handleQuickAdd);
 quickInput.addEventListener("keydown", (e) => {
@@ -943,7 +1106,7 @@ filterTagSel.addEventListener("change", () => {
 });
 
 // ---------------------------------------------------------------------
-// 20. boot
+// 25. boot
 // ---------------------------------------------------------------------
 subscribe();
 render();

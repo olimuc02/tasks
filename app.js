@@ -635,10 +635,15 @@ function buildNotesPanel(t) {
   saveBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     const v = area.value.trim().toLowerCase();
-    if (v !== (t.notes || "")) {
+    const prev = t.notes || "";
+    // optimistically update local state + UI so the editor closes immediately
+    t.notes = v || null;
+    display.textContent = t.notes || "";
+    exitEditMode();
+    // only write to firestore if the value actually changed
+    if (v !== prev) {
       await updateTask(t.id, { notes: v || null });
     }
-    // render() will rebuild this panel from fresh task state
   });
 
   editActions.appendChild(cancelBtn);

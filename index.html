@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
 
-  <!-- iOS standalone behavior -->
+  <!-- iOS standalone -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Tasks" />
@@ -63,12 +63,12 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 13.7 8.3 19 10 13.7 11.7 12 17 10.3 11.7 5 10 10.3 8.3z"/><path d="M19 16v4M21 18h-4M5 17v3M6.5 18.5h-3"/></svg>
           </span>
           <span class="qa-label">Quick capture</span>
-          <span class="qa-hint">name · date · urgency</span>
+          <span class="qa-hint">name · date · urgency · #tag</span>
         </div>
         <textarea
           id="quickInput"
           class="qa-textarea"
-          placeholder="oliver pick up dry cleaning thurs · josh book table sat night urgent · oliver call mum tomorrow!"
+          placeholder="oliver call gym about #d1fitness tomorrow! · josh post for #socialmedia thurs"
           rows="2"
           autocomplete="off"
           autocorrect="on"
@@ -83,6 +83,25 @@
       </div>
     </section>
 
+    <!-- Toolbar: sort + filter -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">sort</span>
+        <select id="sortMode" class="toolbar-select" aria-label="Sort tasks">
+          <option value="priority">by priority</option>
+          <option value="due">by due date</option>
+          <option value="newest">newest first</option>
+          <option value="oldest">oldest first</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">filter</span>
+        <select id="filterTag" class="toolbar-select" aria-label="Filter by tag">
+          <option value="">all tags</option>
+        </select>
+      </div>
+    </div>
+
     <div class="columns">
       <section class="person person-oliver">
         <header class="person-head">
@@ -94,7 +113,7 @@
         </header>
         <ul class="task-list" id="oliverList"></ul>
         <form class="manual-add" data-person="oliver">
-          <input type="text" placeholder="add a task… (try ‘call mum tomorrow!’)" class="manual-input" />
+          <input type="text" placeholder="add a task… (try ‘call mum tomorrow! #joshpersonal’)" class="manual-input" />
           <button type="submit" class="manual-btn" aria-label="Add task for Oliver">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
@@ -111,7 +130,7 @@
         </header>
         <ul class="task-list" id="joshList"></ul>
         <form class="manual-add" data-person="josh">
-          <input type="text" placeholder="add a task… (try ‘call mum tomorrow!’)" class="manual-input" />
+          <input type="text" placeholder="add a task… (try ‘call mum tomorrow! #joshpersonal’)" class="manual-input" />
           <button type="submit" class="manual-btn" aria-label="Add task for Josh">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>

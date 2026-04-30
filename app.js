@@ -469,8 +469,47 @@ function render() {
     countEl.textContent = `${open} open · ${items.length} total`;
 
     list.innerHTML = "";
-    items.forEach((t) => list.appendChild(buildTaskEl(t)));
+    if (sortMode === "tag") {
+      // group by section: each tag id, "__notag__", and "__done__" (one bucket
+      // for all completed tasks at the bottom regardless of tag)
+      let currentSection = "__init__";
+      items.forEach((t) => {
+        const section = t.done
+          ? "__done__"
+          : ((t.tags && t.tags[0]) || "__notag__");
+        if (section !== currentSection) {
+          currentSection = section;
+          list.appendChild(buildTagGroupHeader(section));
+        }
+        list.appendChild(buildTaskEl(t));
+      });
+    } else {
+      items.forEach((t) => list.appendChild(buildTaskEl(t)));
+    }
   }
+}
+
+function buildTagGroupHeader(section) {
+  const li = document.createElement("li");
+  li.className = "tag-group-header";
+
+  let label;
+  let colorClass = "";
+  if (section === "__done__") {
+    label = "completed";
+    colorClass = "tag-group-done";
+  } else if (section === "__notag__") {
+    label = "no tag";
+    colorClass = "tag-group-untagged";
+  } else {
+    const def = TAGS[section];
+    label = def ? def.label : section;
+    colorClass = def ? `tag-group-${def.color}` : "";
+  }
+
+  li.classList.add(colorClass);
+  li.innerHTML = `<span class="tag-group-dot" aria-hidden="true"></span><span class="tag-group-label">${label}</span>`;
+  return li;
 }
 
 function buildTaskEl(t) {

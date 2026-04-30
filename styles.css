@@ -573,74 +573,62 @@ body.modal-open { overflow: hidden; }
 }
 
 /* =====================================================================
-   NOTES — display + edit pattern
-   - When a note exists: render as comment-style text under the task.
-     Tap to edit. Save button persists; cancel discards.
-   - When no note: panel hidden until the notes button is pressed,
-     which opens the editor.
+   DESCRIPTION — small inline subtitle under the task
+   tap to edit, no save button (saves on blur / enter)
    ===================================================================== */
-.task-notes {
-  margin-top: 8px; padding-top: 8px;
-  border-top: 1px dashed var(--line);
-}
-
-/* display mode — looks like a quoted comment */
-.task-notes-display {
+.task-desc {
+  margin-top: 4px;
+  padding: 2px 0;
   font-family: var(--body);
-  font-size: 13.5px; line-height: 1.5;
-  color: var(--ink-2);
-  background: var(--surface-2);
-  border-left: 2px solid var(--line-strong);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 8px 12px;
-  white-space: pre-wrap; word-break: break-word;
-  cursor: text;
-  transition: background 0.18s var(--ease), border-color 0.18s var(--ease);
-}
-.task-notes-display:hover { background: var(--bg-warm); border-color: var(--ink-faint); }
-.task-item.done .task-notes-display { opacity: 0.55; }
-
-/* edit mode */
-.task-notes-edit { display: flex; flex-direction: column; gap: 8px; }
-.task-notes-input {
-  width: 100%;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 9px 11px;
-  font-family: var(--body); font-size: 13.5px; line-height: 1.5;
-  color: var(--ink-2);
-  resize: none; outline: none;
-  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
-  min-height: 52px;
-}
-.task-notes-input:focus { border-color: var(--line-strong); background: var(--surface); }
-.task-notes-input::placeholder { color: var(--ink-faint); font-style: italic; }
-
-.task-notes-actions {
-  display: flex; gap: 8px; justify-content: flex-end;
-}
-.task-notes-btn {
-  font-family: var(--body); font-size: 12.5px; font-weight: 500;
-  padding: 7px 14px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-}
-.task-notes-cancel {
-  background: transparent;
-  border: 1px solid var(--line);
+  font-size: 12.5px;
+  line-height: 1.45;
   color: var(--ink-3);
+  font-style: italic;
+  word-break: break-word;
+  white-space: pre-wrap;
+  cursor: text;
+  border-radius: 4px;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+  /* contenteditable behavior */
+  outline: none;
+  -webkit-user-modify: read-write-plaintext-only;
 }
-.task-notes-cancel:hover { border-color: var(--line-strong); color: var(--ink-2); background: var(--surface-2); }
-.task-notes-save {
-  background: linear-gradient(180deg, #2a2723 0%, #161412 100%);
-  color: #f7f1e6;
-  border: none;
-  box-shadow: var(--shadow-btn-primary);
+.task-desc:hover { color: var(--ink-2); }
+.task-desc.empty,
+.task-item .task-desc.empty {
+  /* tiny subtle prompt — should look like a section label, not body text */
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  line-height: 1.2;
+  padding: 2px 0 0;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease), color 0.18s var(--ease);
 }
-.task-notes-save:hover { transform: translateY(-1px); }
-.task-notes-save:active { transform: translateY(0); }
+.task-item:hover .task-desc.empty,
+.task-item:focus-within .task-desc.empty { opacity: 0.55; }
+.task-desc.editing {
+  background: var(--bg);
+  padding: 4px 8px;
+  margin: 2px -8px 0;
+  box-shadow: 0 0 0 2px var(--line-strong);
+  color: var(--ink-2);
+  font-style: italic;
+  font-size: 12.5px;
+  font-family: var(--body);
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 1;
+}
+.task-item.done .task-desc { opacity: 0.55; text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+@media (max-width: 760px) {
+  /* on mobile, the empty placeholder is gently visible (no hover) */
+  .task-desc.empty { opacity: 0.4; }
+}
 
 /* action buttons */
 .task-actions {
@@ -661,11 +649,41 @@ body.modal-open { overflow: hidden; }
 .task-action-btn.has-data { opacity: 0.7; color: var(--ink-3); }
 .task-action-btn.task-delete:hover { color: var(--oliver); background: var(--oliver-tint); }
 
+/* mobile: bigger, always-visible tap targets so modals are reachable */
 @media (max-width: 760px) {
-  .task-action-btn { opacity: 0.45; }
-  .task-action-btn:active { opacity: 1; }
-  .task-action-btn.has-data { opacity: 0.7; }
-  .task-actions { gap: 0; }
+  .task-item { flex-wrap: wrap; }
+  .task-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 30px; /* align past checkbox */
+    margin-top: 6px;
+    gap: 4px;
+  }
+  .task-action-btn {
+    opacity: 0.75;
+    padding: 9px;
+    min-width: 36px;
+    min-height: 36px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+  }
+  .task-action-btn:active {
+    opacity: 1;
+    background: var(--bg-warm);
+    color: var(--ink);
+    transform: scale(0.96);
+  }
+  .task-action-btn.has-data {
+    opacity: 1;
+    color: var(--ink-2);
+    border-color: var(--line-strong);
+  }
+  .task-action-btn.task-delete:active {
+    color: var(--oliver);
+    background: var(--oliver-tint);
+    border-color: var(--oliver-soft);
+  }
 }
 
 /* empty state */

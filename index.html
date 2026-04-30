@@ -5,9 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#f4ecdf" />
   <title>Tasks · Oliver & Josh</title>
+
+  <!-- Icons & PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+
+  <!-- iOS standalone behavior -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Tasks" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -48,12 +63,12 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 13.7 8.3 19 10 13.7 11.7 12 17 10.3 11.7 5 10 10.3 8.3z"/><path d="M19 16v4M21 18h-4M5 17v3M6.5 18.5h-3"/></svg>
           </span>
           <span class="qa-label">Quick capture</span>
-          <span class="qa-hint">mention oliver or josh · auto-routes</span>
+          <span class="qa-hint">name · date · urgency</span>
         </div>
         <textarea
           id="quickInput"
           class="qa-textarea"
-          placeholder="oliver pick up dry cleaning thurs · josh book a table for sat night…"
+          placeholder="oliver pick up dry cleaning thurs · josh book table sat night urgent · oliver call mum tomorrow!"
           rows="2"
           autocomplete="off"
           autocorrect="on"
@@ -79,7 +94,7 @@
         </header>
         <ul class="task-list" id="oliverList"></ul>
         <form class="manual-add" data-person="oliver">
-          <input type="text" placeholder="add a task…" class="manual-input" />
+          <input type="text" placeholder="add a task… (try ‘call mum tomorrow!’)" class="manual-input" />
           <button type="submit" class="manual-btn" aria-label="Add task for Oliver">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
@@ -96,7 +111,7 @@
         </header>
         <ul class="task-list" id="joshList"></ul>
         <form class="manual-add" data-person="josh">
-          <input type="text" placeholder="add a task…" class="manual-input" />
+          <input type="text" placeholder="add a task… (try ‘call mum tomorrow!’)" class="manual-input" />
           <button type="submit" class="manual-btn" aria-label="Add task for Josh">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>

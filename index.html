@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Atmospheric gradient mesh -->
   <div class="atmosphere" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -31,22 +30,16 @@
         <span id="syncStatus">connecting</span>
       </span>
     </div>
-    <div class="mh-right">
-      <button class="icon-btn" id="settingsBtn" aria-label="Settings">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-    </div>
+    <div class="mh-right"></div>
   </header>
 
   <main class="page">
 
-    <!-- Hero -->
     <section class="hero">
       <p class="hero-date" id="heroDate">—</p>
       <h1 class="hero-title">What needs <em>doing</em>?</h1>
     </section>
 
-    <!-- Quick Add -->
     <section class="quick-add">
       <div class="qa-glow" aria-hidden="true"></div>
       <div class="qa-inner">
@@ -55,7 +48,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 13.7 8.3 19 10 13.7 11.7 12 17 10.3 11.7 5 10 10.3 8.3z"/><path d="M19 16v4M21 18h-4M5 17v3M6.5 18.5h-3"/></svg>
           </span>
           <span class="qa-label">Quick capture</span>
-          <span class="qa-hint">jot it · AI shapes it</span>
+          <span class="qa-hint">mention oliver or josh · auto-routes</span>
         </div>
         <textarea
           id="quickInput"
@@ -67,15 +60,14 @@
         ></textarea>
         <div class="qa-actions">
           <span class="qa-status" id="quickStatus"></span>
-          <button class="btn btn-primary" id="addWithAI">
+          <button class="btn btn-primary" id="addBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-spark"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
-            <span>Add with AI</span>
+            <span>Add</span>
           </button>
         </div>
       </div>
     </section>
 
-    <!-- People columns -->
     <div class="columns">
       <section class="person person-oliver">
         <header class="person-head">
@@ -118,33 +110,6 @@
       <button class="link-btn" id="clearDoneBtn">clear completed</button>
     </footer>
   </main>
-
-  <!-- Settings modal -->
-  <div class="modal-backdrop" id="settingsModal" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Settings</h3>
-        <button class="close-btn" id="closeSettings" aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <label class="field">
-          <span class="field-label">Anthropic API key</span>
-          <span class="field-hint">Used by Quick Capture. Stored on this device only — never written to Firebase.</span>
-          <input type="password" id="apiKeyInput" placeholder="sk-ant-…" autocomplete="off" />
-        </label>
-        <div class="field">
-          <span class="field-label">Firebase</span>
-          <span class="field-hint" id="firebaseStatus">checking…</span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="cancelSettings">Cancel</button>
-        <button class="btn btn-primary" id="saveSettings"><span>Save</span></button>
-      </div>
-    </div>
-  </div>
 
   <script type="module" src="app.js"></script>
 </body>

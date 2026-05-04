@@ -525,47 +525,29 @@ body.me-josh   .me-dot { background: var(--josh);   box-shadow: 0 0 0 2px rgba(4
   background: currentColor;
 }
 
-.task-notes { margin-top: 8px; padding: 8px 0 0; border-top: 1px dashed var(--line); }
+.task-notes { margin-top: 6px; padding: 0; }
 .task-notes-text {
   margin: 0;
   font-family: var(--body);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--ink-2);
+  color: var(--ink-3);
   cursor: text;
   word-break: break-word;
   white-space: pre-wrap;
+  outline: none;
+  padding: 0;
   transition: color .15s var(--ease);
 }
-.task-notes-text:hover { color: var(--ink); }
+.task-notes-text:hover { color: var(--ink-2); }
+.task-notes-text[contenteditable="true"] { color: var(--ink-2); }
+.task-notes-text:empty::before {
+  content: "add a note…";
+  color: var(--ink-faint);
+  font-style: italic;
+  pointer-events: none;
+}
 .task-item.done .task-notes-text { opacity: .6; }
-.task-notes-edit { display: flex; flex-direction: column; gap: 6px; }
-.task-notes-input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-family: var(--body); font-size: 13.5px; line-height: 1.5;
-  color: var(--ink-2);
-  resize: none; outline: none;
-}
-.task-notes-input::placeholder { color: var(--ink-faint); font-style: italic; }
-.task-notes-save {
-  align-self: flex-end;
-  padding: 4px 11px;
-  background: linear-gradient(180deg, #2a2723 0%, #161412 100%);
-  color: #f7f1e6;
-  border: none;
-  border-radius: var(--radius-pill);
-  font-family: var(--body); font-size: 11px; font-weight: 500;
-  letter-spacing: -.005em;
-  cursor: pointer;
-  box-shadow: var(--shadow-btn-primary);
-  transition: transform .15s var(--ease);
-}
-.task-notes-save:hover { transform: translateY(-1px); }
-.task-notes-save:active { transform: translateY(0); }
-.task-item.done .task-notes-input { opacity: .6; }
 
 .task-actions { display: inline-flex; align-items: center; gap: 1px; flex-shrink: 0; margin-top: 1px; }
 .task-action-btn {

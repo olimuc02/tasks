@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#f4ecdf" />
-  <title>tasks</title>
+  <title>tasks · oliver & josh</title>
 
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon1.png" />
@@ -69,6 +69,18 @@
     <section class="hero">
       <p class="hero-date" id="heroDate">—</p>
       <h1 class="hero-title">what needs <em>doing</em>?</h1>
+    </section>
+
+    <!-- due today panel -->
+    <section class="today-panel" id="todayPanel" hidden>
+      <div class="today-head">
+        <span class="today-icon" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </span>
+        <span class="today-label">today</span>
+        <span class="today-count" id="todayCount">0</span>
+      </div>
+      <ul class="today-list" id="todayList"></ul>
     </section>
 
     <section class="quick-add">
@@ -210,6 +222,28 @@
       <div class="date-modal-actions">
         <button class="date-modal-btn date-modal-clear" id="dateModalClear">clear date</button>
         <button class="date-modal-btn date-modal-done" id="dateModalDone">save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- identity modal — daily check-in -->
+  <div class="identity-modal" id="identityModal" hidden aria-hidden="true">
+    <div class="identity-modal-backdrop"></div>
+    <div class="identity-modal-sheet" role="dialog" aria-labelledby="identityModalTitle">
+      <div class="identity-modal-handle" aria-hidden="true"></div>
+      <div class="identity-modal-header">
+        <p class="identity-modal-greeting" id="identityModalGreeting">good morning</p>
+        <h3 class="identity-modal-title" id="identityModalTitle">who's using the app?</h3>
+      </div>
+      <div class="identity-modal-options">
+        <button class="identity-option identity-oliver" data-id="oliver">
+          <span class="identity-avatar"><span>o</span></span>
+          <span class="identity-name">i'm oliver</span>
+        </button>
+        <button class="identity-option identity-josh" data-id="josh">
+          <span class="identity-avatar"><span>j</span></span>
+          <span class="identity-name">i'm josh</span>
+        </button>
       </div>
     </div>
   </div>

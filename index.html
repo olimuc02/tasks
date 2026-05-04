@@ -4,21 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#f4ecdf" />
-  <title>tasks</title>
+  <title>tasks · oliver & josh</title>
 
-  <!-- Icons & PWA -->
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon1.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
 
-  <!-- iOS standalone -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="tasks" />
   <meta name="mobile-web-app-capable" content="yes" />
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -45,10 +42,29 @@
         <span id="syncStatus">connecting</span>
       </span>
     </div>
-    <div class="mh-right"></div>
+    <div class="mh-right">
+      <button class="me-pill" id="mePill" aria-label="switch identity">
+        <span class="me-dot" aria-hidden="true"></span>
+        <span class="me-text">i'm <span id="meLabel">oliver</span></span>
+      </button>
+    </div>
   </header>
 
   <main class="page">
+
+    <!-- new-tasks notification banner -->
+    <div class="notif-banner" id="newTasksBanner" hidden>
+      <span class="notif-icon" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </span>
+      <span class="notif-text" id="newTasksText"></span>
+      <button class="notif-dismiss" id="newTasksDismiss" aria-label="dismiss">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>
+      </button>
+    </div>
 
     <section class="hero">
       <p class="hero-date" id="heroDate">—</p>
@@ -85,13 +101,11 @@
       </div>
     </section>
 
-    <!-- Toolbar: sort + filter -->
     <div class="toolbar">
       <div class="toolbar-group">
         <span class="toolbar-label">sort</span>
         <select id="sortMode" class="toolbar-select" aria-label="sort tasks">
-          <option value="tag">by tag</option>
-          <option value="urgency">by urgency</option>
+          <option value="priority">by priority</option>
           <option value="due">by due date</option>
           <option value="newest">newest first</option>
           <option value="oldest">oldest first</option>
@@ -104,19 +118,6 @@
         </select>
       </div>
     </div>
-
-    <section class="today-section" id="todaySection" hidden>
-      <header class="today-head">
-        <div class="today-title-wrap">
-          <span class="today-icon" aria-hidden="true">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.5" fill="currentColor"/></svg>
-          </span>
-          <h2 class="today-title">due today</h2>
-        </div>
-        <span class="today-count" id="todayCount">—</span>
-      </header>
-      <ul class="task-list today-list" id="todayList"></ul>
-    </section>
 
     <div class="columns">
       <section class="person person-oliver">
@@ -177,9 +178,7 @@
     </footer>
   </main>
 
-  <!-- ============================================================ -->
-  <!-- DATE MODAL                                                    -->
-  <!-- ============================================================ -->
+  <!-- Date picker modal -->
   <div class="date-modal" id="dateModal" hidden aria-hidden="true">
     <div class="date-modal-backdrop" id="dateModalBackdrop"></div>
     <div class="date-modal-sheet" role="dialog" aria-labelledby="dateModalTitle">
@@ -195,8 +194,15 @@
         <div class="date-modal-quick" id="dateQuickRow">
           <button class="date-quick" data-offset="0">today</button>
           <button class="date-quick" data-offset="1">tomorrow</button>
-          <button class="date-quick" data-day="6">saturday</button>
-          <button class="date-quick" data-offset="7">in a week</button>
+        </div>
+        <div class="date-modal-days" id="dateDayRow">
+          <button class="date-day" data-day="1">mon</button>
+          <button class="date-day" data-day="2">tue</button>
+          <button class="date-day" data-day="3">wed</button>
+          <button class="date-day" data-day="4">thu</button>
+          <button class="date-day" data-day="5">fri</button>
+          <button class="date-day" data-day="6">sat</button>
+          <button class="date-day" data-day="0">sun</button>
         </div>
         <p class="date-modal-section-label">or pick a date</p>
         <input type="date" id="dateModalInput" class="date-modal-input" />
@@ -204,72 +210,6 @@
       <div class="date-modal-actions">
         <button class="date-modal-btn date-modal-clear" id="dateModalClear">clear date</button>
         <button class="date-modal-btn date-modal-done" id="dateModalDone">save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- URGENCY MODAL                                                 -->
-  <!-- ============================================================ -->
-  <div class="action-modal" id="urgencyModal" hidden aria-hidden="true">
-    <div class="action-modal-backdrop" data-modal-close></div>
-    <div class="action-modal-sheet" role="dialog" aria-labelledby="urgencyModalTitle">
-      <div class="action-modal-handle" aria-hidden="true"></div>
-      <div class="action-modal-header">
-        <h3 id="urgencyModalTitle">set urgency</h3>
-        <button class="action-modal-close" data-modal-close aria-label="close">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>
-        </button>
-      </div>
-      <div class="action-modal-body">
-        <div class="urgency-options" id="urgencyModalOptions"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- TAG MODAL                                                     -->
-  <!-- ============================================================ -->
-  <div class="action-modal" id="tagModal" hidden aria-hidden="true">
-    <div class="action-modal-backdrop" data-modal-close></div>
-    <div class="action-modal-sheet" role="dialog" aria-labelledby="tagModalTitle">
-      <div class="action-modal-handle" aria-hidden="true"></div>
-      <div class="action-modal-header">
-        <h3 id="tagModalTitle">tags</h3>
-        <button class="action-modal-close" data-modal-close aria-label="close">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>
-        </button>
-      </div>
-      <div class="action-modal-body">
-        <p class="action-modal-hint">tap to toggle — multiple allowed</p>
-        <div class="tag-modal-grid" id="tagModalGrid"></div>
-      </div>
-      <div class="action-modal-actions">
-        <button class="action-modal-btn action-modal-primary" data-modal-close>done</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- DELETE MODAL                                                  -->
-  <!-- ============================================================ -->
-  <div class="action-modal" id="deleteModal" hidden aria-hidden="true">
-    <div class="action-modal-backdrop" data-modal-close></div>
-    <div class="action-modal-sheet" role="dialog" aria-labelledby="deleteModalTitle">
-      <div class="action-modal-handle" aria-hidden="true"></div>
-      <div class="action-modal-header">
-        <h3 id="deleteModalTitle">delete task?</h3>
-        <button class="action-modal-close" data-modal-close aria-label="close">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg>
-        </button>
-      </div>
-      <div class="action-modal-body">
-        <p class="delete-modal-text" id="deleteModalText"></p>
-        <p class="action-modal-hint">this can't be undone.</p>
-      </div>
-      <div class="action-modal-actions">
-        <button class="action-modal-btn action-modal-secondary" data-modal-close>cancel</button>
-        <button class="action-modal-btn action-modal-danger" id="deleteModalConfirm">delete</button>
       </div>
     </div>
   </div>

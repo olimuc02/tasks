@@ -481,7 +481,7 @@ function buildTaskEl(t) {
   const notesArea = document.createElement("textarea");
   notesArea.className = "task-notes-input";
   notesArea.placeholder = "add a note…";
-  notesArea.rows = 2;
+  notesArea.rows = 1;
   notesArea.setAttribute("autocapitalize", "none");
   notesArea.setAttribute("autocorrect", "on");
   notesArea.setAttribute("spellcheck", "true");

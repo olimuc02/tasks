@@ -72,6 +72,11 @@ const meLabel = $("#meLabel");
 const notifBanner = $("#newTasksBanner");
 const notifText = $("#newTasksText");
 const notifDismiss = $("#newTasksDismiss");
+const todayPanel = $("#todayPanel");
+const todayList = $("#todayList");
+const todayCount = $("#todayCount");
+const identityModal = $("#identityModal");
+const identityModalGreeting = $("#identityModalGreeting");
 
 // 5. state
 let tasks = [];
@@ -111,6 +116,46 @@ mePill.addEventListener("click", () => {
   checkForNewTasks();
 });
 updateMeUI();
+
+// 6b. daily identity modal
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 4 && h < 12) return "good morning";
+  if (h >= 12 && h < 17) return "good afternoon";
+  if (h >= 17 && h < 21) return "good evening";
+  return "hey there";
+}
+function showIdentityModal() {
+  identityModalGreeting.textContent = getGreeting();
+  identityModal.hidden = false;
+  identityModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  requestAnimationFrame(() => identityModal.classList.add("open"));
+}
+function hideIdentityModal() {
+  identityModal.classList.remove("open");
+  identityModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+  setTimeout(() => { identityModal.hidden = true; }, 220);
+}
+function maybeShowIdentityModal() {
+  const today = new Date().toDateString();
+  if (localStorage.getItem("identityShown") !== today) {
+    showIdentityModal();
+  }
+}
+identityModal.querySelectorAll(".identity-option").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const picked = btn.dataset.id;
+    if (!PEOPLE.includes(picked)) return;
+    me = picked;
+    setPref("me", me);
+    updateMeUI();
+    localStorage.setItem("identityShown", new Date().toDateString());
+    hideIdentityModal();
+    checkForNewTasks();
+  });
+});
 
 // 7. last-seen + notification
 function getLastSeen() {
@@ -431,6 +476,50 @@ function render() {
     list.innerHTML = "";
     items.forEach((t) => list.appendChild(buildTaskEl(t)));
   }
+  renderToday();
+}
+
+function renderToday() {
+  const todayStart = startOfDay(new Date()).getTime();
+  const todayEnd = todayStart + MS_DAY;
+  const items = tasks
+    .filter((t) => !t.done && t.dueDate && t.dueDate < todayEnd)
+    .sort((a, b) => (a.dueDate || 0) - (b.dueDate || 0));
+  if (!items.length) { todayPanel.hidden = true; return; }
+  todayPanel.hidden = false;
+  todayCount.textContent = items.length;
+  todayList.innerHTML = "";
+  for (const t of items) {
+    const li = document.createElement("li");
+    li.className = `today-item person-${t.person}`;
+    li.dataset.id = t.id;
+    const isOverdue = t.dueDate < todayStart;
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "task-checkbox today-checkbox";
+    cb.addEventListener("change", () => toggleDone(t.id, cb.checked));
+    li.appendChild(cb);
+
+    const personTag = document.createElement("span");
+    personTag.className = "today-person";
+    personTag.textContent = t.person;
+    li.appendChild(personTag);
+
+    const text = document.createElement("span");
+    text.className = "today-text";
+    text.textContent = (t.text || "").toLowerCase();
+    li.appendChild(text);
+
+    if (isOverdue) {
+      const badge = document.createElement("span");
+      badge.className = "today-overdue";
+      badge.textContent = "overdue";
+      li.appendChild(badge);
+    }
+
+    todayList.appendChild(li);
+  }
 }
 
 function buildTaskEl(t) {
@@ -527,7 +616,7 @@ function buildTaskEl(t) {
 
 function buildMetaEl(t) {
   const tags = t.tags || [];
-  if (!tags.length && !t.dueDate && !t.urgency) return null;
+  if (!tags.length && !t.dueDate && !t.urgency && !t.addedBy) return null;
   const meta = document.createElement("div");
   meta.className = "task-meta";
 
@@ -573,6 +662,13 @@ function buildMetaEl(t) {
       await updateTask(t.id, { urgency: next });
     });
     meta.appendChild(u);
+  }
+
+  if (t.addedBy && PEOPLE.includes(t.addedBy)) {
+    const by = document.createElement("span");
+    by.className = `task-by by-${t.addedBy}`;
+    by.textContent = `by ${t.addedBy}`;
+    meta.appendChild(by);
   }
 
   return meta;
@@ -894,5 +990,6 @@ filterTagSel.addEventListener("change", () => {
 });
 
 // 22. boot
+maybeShowIdentityModal();
 subscribe();
 render();

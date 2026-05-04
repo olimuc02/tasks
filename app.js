@@ -464,32 +464,80 @@ function buildTaskEl(t) {
   if (meta) main.appendChild(meta);
   body.appendChild(main);
 
+  // notes — plain-text view with click-to-edit
   const notesPanel = document.createElement("div");
   notesPanel.className = "task-notes";
-  if (!t.notes) notesPanel.hidden = true;
+  const hasNotes = !!t.notes;
+
+  const notesView = document.createElement("p");
+  notesView.className = "task-notes-text";
+  notesView.textContent = (t.notes || "").toLowerCase();
+  notesView.title = "click to edit";
+
+  const notesEdit = document.createElement("div");
+  notesEdit.className = "task-notes-edit";
+  notesEdit.hidden = true;
+
   const notesArea = document.createElement("textarea");
   notesArea.className = "task-notes-input";
   notesArea.placeholder = "add a note…";
-  notesArea.value = (t.notes || "").toLowerCase();
   notesArea.rows = 2;
   notesArea.setAttribute("autocapitalize", "none");
   notesArea.setAttribute("autocorrect", "on");
   notesArea.setAttribute("spellcheck", "true");
   bindLowercaseInput(notesArea);
   notesArea.addEventListener("input", () => autoResize(notesArea));
-  notesArea.addEventListener("blur", async () => {
-    const v = notesArea.value.trim().toLowerCase();
-    if (v !== (t.notes || "")) await updateTask(t.id, { notes: v || null });
-  });
-  notesPanel.appendChild(notesArea);
+
+  const notesSave = document.createElement("button");
+  notesSave.type = "button";
+  notesSave.className = "task-notes-save";
+  notesSave.textContent = "save";
+
+  notesEdit.appendChild(notesArea);
+  notesEdit.appendChild(notesSave);
+  notesPanel.appendChild(notesView);
+  notesPanel.appendChild(notesEdit);
+  if (!hasNotes) notesPanel.hidden = true;
   body.appendChild(notesPanel);
-  if (t.notes) requestAnimationFrame(() => autoResize(notesArea));
+
+  function enterNotesEdit() {
+    notesPanel.hidden = false;
+    notesView.hidden = true;
+    notesEdit.hidden = false;
+    notesArea.value = (t.notes || "").toLowerCase();
+    requestAnimationFrame(() => {
+      autoResize(notesArea);
+      notesArea.focus();
+      notesArea.setSelectionRange(notesArea.value.length, notesArea.value.length);
+    });
+  }
+  function exitNotesEdit() {
+    notesEdit.hidden = true;
+    if (t.notes) {
+      notesView.hidden = false;
+      notesPanel.hidden = false;
+    } else {
+      notesView.hidden = true;
+      notesPanel.hidden = true;
+    }
+  }
+
+  notesView.addEventListener("click", enterNotesEdit);
+  notesSave.addEventListener("click", async () => {
+    const v = notesArea.value.trim().toLowerCase();
+    if (v !== (t.notes || "")) {
+      await updateTask(t.id, { notes: v || null });
+      // snapshot will re-render this task
+    } else {
+      exitNotesEdit();
+    }
+  });
 
   const tagPicker = buildTagPickerEl(t);
   body.appendChild(tagPicker);
   li.appendChild(body);
 
-  const actions = buildActionsEl(t, { notesPanel, notesArea, tagPicker });
+  const actions = buildActionsEl(t, { notesPanel, notesEdit, enterNotesEdit, exitNotesEdit, tagPicker });
   li.appendChild(actions);
   return li;
 }
@@ -574,7 +622,7 @@ function buildTagPickerEl(t) {
   return wrap;
 }
 
-function buildActionsEl(t, { notesPanel, notesArea, tagPicker }) {
+function buildActionsEl(t, { notesPanel, notesEdit, enterNotesEdit, exitNotesEdit, tagPicker }) {
   const actions = document.createElement("div");
   actions.className = "task-actions";
 
@@ -613,12 +661,13 @@ function buildActionsEl(t, { notesPanel, notesArea, tagPicker }) {
   if (t.notes) notesBtn.classList.add("has-data");
   notesBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    notesPanel.hidden = !notesPanel.hidden;
-    if (!notesPanel.hidden) {
+    if (!notesEdit.hidden) {
+      exitNotesEdit();
+      notesBtn.classList.remove("active");
+    } else {
+      enterNotesEdit();
       notesBtn.classList.add("active");
-      notesArea.focus();
-      requestAnimationFrame(() => autoResize(notesArea));
-    } else { notesBtn.classList.remove("active"); }
+    }
   });
   actions.appendChild(notesBtn);
 
